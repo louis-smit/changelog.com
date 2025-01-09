@@ -1,5 +1,6 @@
 defmodule ChangelogWeb.Meta.Title do
   alias ChangelogWeb.{
+    AlbumView,
     AuthView,
     EpisodeView,
     EpisodeRequestView,
@@ -14,27 +15,15 @@ defmodule ChangelogWeb.Meta.Title do
     SearchView
   }
 
-  @default "News and podcasts for developers"
+  @default "Podcasts for developers"
 
-  def get(type, conn) do
+  def get(conn) do
     view = Phoenix.Controller.view_module(conn)
     template = Phoenix.Controller.view_template(conn)
     assigns = Map.merge(conn.assigns, %{view_module: view, view_template: template})
 
-    case type do
-      :page -> page_title(assigns)
-      :share -> share_title(assigns)
-    end
+    title(assigns) || @default
   end
-
-  defp page_title(assigns) do
-    [title(assigns) || @default, "Changelog"]
-    |> Enum.reject(&is_nil/1)
-    |> Enum.join(" |> ")
-  end
-
-  # no need for the suffix on these
-  defp share_title(assigns), do: title(assigns) || @default
 
   # Search views
   defp title(%{view_module: SearchView, view_template: "search.html", query: ""}), do: "Search"
@@ -78,6 +67,13 @@ defmodule ChangelogWeb.Meta.Title do
   # Sign in
   defp title(%{view_module: AuthView}), do: "Sign In"
 
+  # Album index
+  defp title(%{view_module: AlbumView, view_template: "index.html"}), do: "Changelog Beats"
+
+  # Album show
+  defp title(%{view_module: AlbumView, view_template: "show.html", album: album}),
+    do: "#{album.name} by Breakmaster Cylinder on Changelog Beats"
+
   # Source index
   defp title(%{view_module: NewsSourceView, view_template: "index.html"}), do: "All news sources"
 
@@ -87,32 +83,16 @@ defmodule ChangelogWeb.Meta.Title do
   end
 
   # Topic index
-  defp title(%{view_module: TopicView, view_template: "index.html"}), do: "All news topics"
+  defp title(%{view_module: TopicView, view_template: "index.html"}), do: "All podcast topics"
 
-  # Topic show pages
-  defp title(%{view_module: TopicView, topic: topic, tab: "news"}) do
-    "Developer news about #{topic.name}"
-  end
-
-  defp title(%{view_module: TopicView, topic: topic, tab: "podcasts"}) do
-    "#{topic.name} podcasts for developers"
-  end
-
+  # Topic show page
   defp title(%{view_module: TopicView, topic: topic}) do
-    "#{topic.name} news and podcasts for developers"
+    "#{topic.name} podcast episodes"
   end
 
-  # Person show pages
-  defp title(%{view_module: PersonView, person: person, tab: "news"}) do
-    "News contributed by #{person.name}"
-  end
-
-  defp title(%{view_module: PersonView, person: person, tab: "podcasts"}) do
-    "#{person.name}'s podcast episodes On Changelog"
-  end
-
+  # Person show page
   defp title(%{view_module: PersonView, person: person}) do
-    "#{person.name} on Changelog"
+    "Podcast episodes featuring #{person.name}"
   end
 
   # Guest guide
@@ -133,8 +113,8 @@ defmodule ChangelogWeb.Meta.Title do
       "coc.html" ->
         "Code of conduct"
 
-      "home.html" ->
-        nil
+      "index.html" ->
+        "Podcasts for developers"
 
       "weekly.html" ->
         "Subscribe to Changelog Weekly"
@@ -172,10 +152,11 @@ defmodule ChangelogWeb.Meta.Title do
 
   defp title(%{view_module: PodcastView, podcast: %{name: name, slug: slug}}) do
     case slug do
-      "backstage" -> "Changelog's #{name} Podcast"
+      "backstage" -> "Changelog's #{name} podcast"
       "master" -> name
-      "podcast" -> "#{name} Podcast"
-      _else -> "The #{name} Podcast"
+      "news" -> "Changelog News podcast + newsletter"
+      "podcast" -> "#{name} podcast"
+      _else -> "The #{name} podcast"
     end
   end
 
@@ -183,6 +164,16 @@ defmodule ChangelogWeb.Meta.Title do
   defp title(%{
          view_module: EpisodeView,
          view_template: "show.html",
+         podcast: _podcast,
+         episode: episode
+       }) do
+    EpisodeView.title_with_guest_focused_subtitle_and_podcast_aside(episode)
+  end
+
+  # News episode page
+  defp title(%{
+         view_module: EpisodeView,
+         view_template: "news.html",
          podcast: _podcast,
          episode: episode
        }) do

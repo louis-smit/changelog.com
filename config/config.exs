@@ -3,54 +3,67 @@
 #
 # This configuration file is loaded before any dependency and
 # is restricted to this project.
-use Mix.Config
+import Config
 
 config :changelog, ChangelogWeb.Endpoint,
   url: [host: "localhost"],
   secret_key_base:
-    SecretOrEnv.get(
+    System.get_env(
       "SECRET_KEY_BASE",
       "PABstVJCyPEcRByCU8tmSZjv0UfoV+UeBlXNRigy4ba221RzqfN82qwsKvA5bJzi"
     ),
-  render_errors: [accepts: ~w(html json)],
+  render_errors: [view: ChangelogWeb.ErrorView, accepts: ~w(html json), layout: false],
   pubsub_server: Changelog.PubSub,
-  cdn_static_cache:
-    System.get_env(
-      "CDN_STATIC_CACHE",
-      "max-age=#{3600 * 24 * 7}, stale-while-revalidate=3600, stale-if-error=#{3600 * 24 * 7}"
-    ),
-  cdn_app_cache:
-    System.get_env(
-      "CDN_APP_CACHE",
-      "max-age=60, stale-while-revalidate=60, stale-if-error=#{3600 * 24 * 7}"
-    )
+  live_view: [signing_salt: "+GzuQhsbhBJIqc4ctHLGjo+D2ZohVqNW"]
 
 config :changelog,
-  buffer_token: SecretOrEnv.get("BUFFER_TOKEN"),
-  github_api_token: SecretOrEnv.get("GITHUB_API_TOKEN"),
-  hcaptcha_secret_key: SecretOrEnv.get("HCAPTCHA_SECRET_KEY"),
-  recaptcha_secret_key: SecretOrEnv.get("RECAPTCHA_SECRET_KEY"),
-  hn_user: SecretOrEnv.get("HN_USER"),
-  hn_pass: SecretOrEnv.get("HN_PASS"),
-  cm_api_token: Base.encode64("#{SecretOrEnv.get("CM_API_TOKEN")}:x"),
-  slack_invite_api_token: SecretOrEnv.get("SLACK_INVITE_API_TOKEN"),
-  slack_app_api_token: SecretOrEnv.get("SLACK_APP_API_TOKEN"),
-  plusplus_slug: SecretOrEnv.get("PLUSPLUS_SLUG"),
+  buffer_token: System.get_env("BUFFER_TOKEN"),
+  cm_api_token: Base.encode64("#{System.get_env("CM_API_TOKEN")}:x"),
+  fastly_token: System.get_env("FASTLY_TOKEN"),
+  github_api_token: System.get_env("GITHUB_API_TOKEN"),
+  bsky_user: System.get_env("BSKY_USER"),
+  bsky_pass: System.get_env("BSKY_PASS"),
+  hn_user: System.get_env("HN_USER"),
+  hn_pass: System.get_env("HN_PASS"),
+  mastodon_client_id: System.get_env("MASTODON_CLIENT_ID"),
+  mastodon_client_secret: System.get_env("MASTODON_CLIENT_SECRET"),
+  mastodon_api_token: System.get_env("MASTODON_API_TOKEN"),
+  plusplus_slug: System.get_env("PLUSPLUS_SLUG"),
+  plusplus_url: "https://changelog.supercast.com",
+  turnstile_secret_key: System.get_env("TURNSTILE_SECRET_KEY"),
+  slack_invite_api_token: System.get_env("SLACK_INVITE_API_TOKEN"),
+  slack_app_api_token: System.get_env("SLACK_APP_API_TOKEN"),
+  snap_token: System.get_env("SNAP_TOKEN"),
+  typesense_url: System.get_env("TYPESENSE_URL"),
+  typesense_api_key: System.get_env("TYPESENSE_API_KEY"),
+  zulip_url: "https://changelog.zulipchat.com",
+  zulip_admin_user: System.get_env("ZULIP_ADMIN_USER"),
+  zulip_admin_api_key: System.get_env("ZULIP_ADMIN_API_KEY"),
+  zulip_bot_user: System.get_env("ZULIP_BOT_USER"),
+  zulip_bot_api_key: System.get_env("ZULIP_BOT_API_KEY"),
+  # 60 = one minute, 3600 = one hour, 86,400 = one day, 604,800 = one week, 31,536,000 = one year
+  cdn_cache_control_s3:
+    System.get_env(
+      "CDN_CACHE_CONTROL_S3",
+      "max-age=31536000, stale-while-revalidate=3600, stale-if-error=86400"
+    ),
+  cdn_cache_control_app:
+    System.get_env(
+      "CDN_CACHE_CONTROL_APP",
+      "max-age=60, stale-while-revalidate=60, stale-if-error=604800"
+    ),
   ecto_repos: [Changelog.Repo]
 
 config :changelog, Oban,
   repo: Changelog.Repo,
-  queues: [comment_notifier: 10, scheduled: 5],
-  plugins: [Oban.Plugins.Pruner, Oban.Plugins.Stager]
+  queues: [default: 1, audio_updater: 2, scheduled: 2, email: 6, feeds: 5],
+  plugins: [Oban.Plugins.Pruner]
 
-config :changelog, Changelog.Mailer, adapter: Bamboo.LocalAdapter
+config :changelog, Changelog.Mailer, adapter: Swoosh.Adapters.Local
 
 config :logger, :console,
   format: "$time $metadata[$level] $message\n",
   metadata: [:request_id]
-
-config :arc,
-  storage_dir: System.get_env("UPLOADS_PATH", "priv/uploads")
 
 config :phoenix, :json_library, Jason
 
@@ -60,20 +73,25 @@ config :phoenix, :generators,
   migration: true,
   binary_id: false
 
-config :scrivener_html,
-  routes_helper: ChangelogWeb.Router.Helpers,
-  view_style: :semantic
-
 config :mime, :types, %{"application/javascript" => ["js"], "application/xml" => ["xml"]}
 
 config :shopify,
   shop_name: "changelog",
-  api_key: SecretOrEnv.get("SHOPIFY_API_KEY"),
-  password: SecretOrEnv.get("SHOPIFY_API_PASSWORD")
+  api_key: System.get_env("SHOPIFY_API_KEY"),
+  password: System.get_env("SHOPIFY_API_PASSWORD")
 
 config :ex_aws,
-  access_key_id: SecretOrEnv.get("AWS_ACCESS_KEY_ID"),
-  secret_access_key: SecretOrEnv.get("AWS_SECRET_ACCESS_KEY")
+  access_key_id: System.get_env("R2_ACCESS_KEY_ID"),
+  secret_access_key: System.get_env("R2_SECRET_ACCESS_KEY")
+
+config :ex_aws, :s3, host: System.get_env("R2_API_HOST")
+
+config :ex_aws, :hackney_opts, recv_timeout: 300_000
+
+config :waffle,
+  storage: Waffle.Storage.S3,
+  version_timeout: 30_000,
+  bucket: System.get_env("R2_ASSETS_BUCKET")
 
 config :ueberauth, Ueberauth,
   providers: [
@@ -82,23 +100,39 @@ config :ueberauth, Ueberauth,
   ]
 
 config :ueberauth, Ueberauth.Strategy.Github.OAuth,
-  client_id: SecretOrEnv.get("GITHUB_CLIENT_ID"),
-  client_secret: SecretOrEnv.get("GITHUB_CLIENT_SECRET")
+  client_id: System.get_env("GITHUB_CLIENT_ID"),
+  client_secret: System.get_env("GITHUB_CLIENT_SECRET")
 
-config :ueberauth, Ueberauth.Strategy.Twitter.OAuth,
-  consumer_key: SecretOrEnv.get("TWITTER_CONSUMER_KEY"),
-  consumer_secret: SecretOrEnv.get("TWITTER_CONSUMER_SECRET")
+config :stripity_stripe,
+  api_key: System.get_env("STRIPE_SECRET"),
+  signing_secret: System.get_env("STRIPE_WEBHOOK_SECRET")
 
-config :algolia,
-  application_id: SecretOrEnv.get("ALGOLIA_APPLICATION_ID"),
-  api_key: SecretOrEnv.get("ALGOLIA_API_KEY")
+config :opentelemetry,
+  resource: [
+    service: [
+      name: "changelog",
+      namespace: "#{config_env()}"
+    ],
+    user: [
+      name: System.get_env("USER")
+    ]
+  ],
+  span_processor: :batch,
+  traces_exporter: :none
 
-config :sentry,
-  dsn: "https://2b1aed8f16f5404cb2bc79b855f2f92d@o546963.ingest.sentry.io/5668962",
-  included_environments: [:prod],
-  environment_name: Mix.env(),
-  filter: Changelog.Sentry.EventFilter
+if System.get_env("HONEYCOMB_API_KEY") do
+  config :opentelemetry, traces_exporter: :otlp
+
+  config :opentelemetry_exporter,
+    otlp_protocol: :http_protobuf,
+    otlp_compression: :gzip,
+    otlp_endpoint: "https://api.honeycomb.io:443",
+    otlp_headers: [
+      {"x-honeycomb-team", System.get_env("HONEYCOMB_API_KEY")},
+      {"x-honeycomb-dataset", "changelog_opentelemetry"}
+    ]
+end
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
-import_config "#{Mix.env()}.exs"
+import_config "#{config_env()}.exs"

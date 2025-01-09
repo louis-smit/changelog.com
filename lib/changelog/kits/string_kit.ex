@@ -3,7 +3,9 @@ defmodule Changelog.StringKit do
 
   def blank?(nil), do: true
 
-  def blank?(string), do: String.trim(string) == ""
+  def blank?(string) when is_binary(string), do: String.trim(string) == ""
+
+  def blank?(_unknown), do: false
 
   def dasherize(string) do
     string
@@ -28,12 +30,14 @@ defmodule Changelog.StringKit do
   end
 
   @doc """
-  Returns true if the given string represents a number, false otherwise
+  Returns true if the given string represents an integer, false otherwise
   """
-  def is_number(string) do
-    case Integer.parse(string) do
-      :error -> false
-      _else -> true
+  def is_integer(string) do
+    try do
+      _ = String.to_integer(string)
+      true
+    rescue
+      _ -> false
     end
   end
 
@@ -49,6 +53,15 @@ defmodule Changelog.StringKit do
     /x
 
     Regex.replace(regex, string, ~s{[\\1](\\1)})
+  end
+
+  @doc """
+  Removes Markdown-style links from a string
+  """
+  def md_delinkify(string) do
+    regex = ~r/\[(.*?)\]\(.*?\)/
+
+    Regex.replace(regex, string, "\\1")
   end
 
   @doc """

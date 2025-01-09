@@ -1,5 +1,6 @@
 defmodule ChangelogWeb.Meta.Description do
   alias ChangelogWeb.{
+    AlbumView,
     EpisodeView,
     LiveView,
     Meta,
@@ -18,14 +19,23 @@ defmodule ChangelogWeb.Meta.Description do
     description(assigns)
   end
 
+  defp description(%{view_module: AlbumView, view_template: "index.html"}) do
+    "Original music by Breakmaster Cylinder featured on all Changelog podcasts"
+  end
+
+  defp description(%{view_module: AlbumView, album: album}), do: album.description
+
   defp description(%{view_module: EpisodeView, episode: episode}),
-    do: episode.summary |> SharedHelpers.md_to_text() |> SharedHelpers.truncate(320)
+    do: EpisodeView.text_description(episode)
 
   defp description(%{view_module: NewsItemView, item: item}),
     do: item.story |> SharedHelpers.md_to_text() |> SharedHelpers.truncate(320)
 
   defp description(%{view_module: NewsSourceView, source: source}), do: source.description
-  defp description(%{view_module: PodcastView, view_template: "index.html"}), do: podcasts_summary()
+
+  defp description(%{view_module: PodcastView, view_template: "index.html"}),
+    do: podcasts_summary()
+
   defp description(%{view_module: PodcastView, podcast: podcast}), do: podcast.description
   defp description(%{view_module: LiveView, view_template: "index.html"}), do: podcasts_summary()
   defp description(%{view_module: LiveView, podcast: podcast}), do: podcast.description
@@ -38,12 +48,12 @@ defmodule ChangelogWeb.Meta.Description do
     end
   end
 
-  defp description(%{view_module: PageView, view_template: "community.html"}) do
-    "Join developers from all over the world with a backstage pass to everything we do"
+  defp description(%{view_module: PageView, view_template: "index.html"}) do
+    podcasts_summary()
   end
 
-  defp description(%{view_module: PageView, view_template: "weekly.html"}) do
-    "Our editorialized take on this week in dev culture, software development, open source, building startups, creative work, and the people involved"
+  defp description(%{view_module: PageView, view_template: "community.html"}) do
+    "Join developers from all over the world with a backstage pass to everything we do"
   end
 
   defp description(%{view_module: PageView, view_template: "nightly.html"}) do
