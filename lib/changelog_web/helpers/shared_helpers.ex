@@ -1,6 +1,7 @@
 defmodule ChangelogWeb.Helpers.SharedHelpers do
   use Phoenix.HTML
 
+  alias Changelog.StringKit
   alias Changelog.{ListKit, Regexp}
   alias Phoenix.{Controller, Naming}
 
@@ -18,7 +19,7 @@ defmodule ChangelogWeb.Helpers.SharedHelpers do
     active_id = controller_action_combo(conn)
 
     if Enum.any?(matchers, fn x ->
-         matcher = if Regex.regex?(x), do: x, else: ~r/#{x}/
+         matcher = if is_struct(x, Regex), do: x, else: ~r/#{x}/
          String.match?(active_id, matcher)
        end) do
       class_name
@@ -26,6 +27,11 @@ defmodule ChangelogWeb.Helpers.SharedHelpers do
   end
 
   def action_name(conn), do: Controller.action_name(conn)
+
+  def bsky_url(nil), do: ""
+  def bsky_url(%{bsky_handle: nil}), do: ""
+  def bsky_url(%{bsky_handle: handle}), do: bsky_url(handle)
+  def bsky_url(handle), do: "https://bsky.app/profile/#{handle}"
 
   def comma_separated(number) do
     number
@@ -110,6 +116,15 @@ defmodule ChangelogWeb.Helpers.SharedHelpers do
   def linkedin_url(%{linkedin_handle: handle}), do: linkedin_url(handle)
   def linkedin_url(handle), do: "https://www.linkedin.com/in/#{handle}"
 
+  def mastodon_url(nil), do: ""
+  def mastodon_url(%{mastodon_handle: nil}), do: ""
+  def mastodon_url(%{mastodon_handle: handle}), do: mastodon_url(handle)
+
+  def mastodon_url(handle) do
+    [user, domain] = String.split(handle, "@")
+    "https://#{domain}/@#{user}"
+  end
+
   def is_future?(time = %DateTime{}, as_of \\ Timex.now()), do: Timex.compare(time, as_of) == 1
 
   def is_past?(time = %DateTime{}, as_of \\ Timex.now()), do: Timex.compare(time, as_of) == -1
@@ -143,9 +158,9 @@ defmodule ChangelogWeb.Helpers.SharedHelpers do
 
   def md_to_text(nil), do: ""
 
-  def md_to_text(md) when is_binary(md),
-    do: md |> md_to_html() |> HtmlSanitizeEx.strip_tags() |> sans_new_lines()
+  def md_to_text(md) when is_binary(md), do: md |> StringKit.md_delinkify()
 
+  def percent(_numerator, 0), do: 0
   def percent(numerator, divisor), do: (numerator / divisor * 100) |> round()
 
   def pluralize(list, singular, plural) when is_list(list),
@@ -154,19 +169,11 @@ defmodule ChangelogWeb.Helpers.SharedHelpers do
   def pluralize(1, singular, _plural), do: "1 #{singular}"
   def pluralize(count, _singular, plural), do: "#{count} #{plural}"
 
-  def pretty_reach(ep_or_pod) do
-    ep_or_pod
-    |> reach_count()
-    |> comma_separated()
+  def pretty_downloads(ep_or_pod) when is_map(ep_or_pod) do
+    pretty_downloads(ep_or_pod.download_count)
   end
 
-  def reach_count(ep_or_pod) do
-    if ep_or_pod.reach_count >= ep_or_pod.download_count do
-      ep_or_pod.reach_count
-    else
-      round(ep_or_pod.download_count)
-    end
-  end
+  def pretty_downloads(downloads), do: downloads |> round() |> comma_separated()
 
   def sans_p_tags(html), do: String.replace(html, Regexp.tag("p"), "")
 
@@ -198,6 +205,11 @@ defmodule ChangelogWeb.Helpers.SharedHelpers do
       link(domain_name(model.website), to: model.website, rel: "external")
     end
   end
+
+  def x_url(nil), do: ""
+  def x_url(%{twitter_handle: nil}), do: ""
+  def x_url(%{twitter_handle: handle}), do: x_url(handle)
+  def x_url(handle) when is_binary(handle), do: "https://x.com/#{handle}"
 
   def word_count(nil), do: 0
 

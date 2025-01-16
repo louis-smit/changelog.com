@@ -3,7 +3,9 @@ import Clipboard from "clipboard";
 import SearchWidget from "components/searchWidget";
 import FilterWidget from "components/filterWidget";
 import CalendarField from "components/calendarField";
+import ChaptersWidget from "components/chaptersWidget";
 import Modal from "components/modal";
+import parseTime from "../../shared/parseTime";
 
 export default class EpisodeView {
   constructor() {
@@ -13,23 +15,25 @@ export default class EpisodeView {
         height: 400
       },
       yaxis: {
-         decimalsInFloat: 0,
-         labels: {
-          formatter: function(val) {
+        decimalsInFloat: 0,
+        labels: {
+          formatter: function (val) {
             return val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-           }
-         }
+          }
+        }
       }
-    }
+    };
   }
 
   index() {
     new FilterWidget();
 
-    let scheduled = $(".ui.calendar").data("scheduled").map((string) => {
-      let date = new Date(string);
-      return date.toDateString();
-    });
+    let scheduled = $(".ui.calendar")
+      .data("scheduled")
+      .map((string) => {
+        let date = new Date(string);
+        return date.toDateString();
+      });
 
     $(".ui.calendar").calendar({
       type: "date",
@@ -46,10 +50,10 @@ export default class EpisodeView {
 
     let chartOptions = this.chartOptions;
 
-    $(".performance-chart").each(function(_index) {
+    $(".performance-chart").each(function (_index) {
       let container = this;
 
-      $.getJSON($(container).data("source"), function(data) {
+      $.getJSON($(container).data("source"), function (data) {
         let options = $.extend(chartOptions, {
           series: data.series,
           title: {
@@ -67,13 +71,16 @@ export default class EpisodeView {
           },
           tooltip: {
             x: {
-              formatter: function(value, {_series, seriesIndex, dataPointIndex, _w}) {
+              formatter: function (
+                value,
+                { _series, seriesIndex, dataPointIndex, _w }
+              ) {
                 let title = data.series[seriesIndex].data[dataPointIndex].title;
                 let slug = data.series[seriesIndex].data[dataPointIndex].x;
                 return `${slug}: ${title}`;
               }
             },
-            marker: {show: false}
+            marker: { show: false }
           }
         });
 
@@ -85,23 +92,25 @@ export default class EpisodeView {
 
   show() {
     let clipboard = new Clipboard(".clipboard.button", {
-      target: function(trigger) {
+      target: function (trigger) {
         return trigger.previousElementSibling;
       }
     });
 
-    clipboard.on("success", function(e) {
-      $(e.trigger).popup({variation: "inverted", content: "Copied!"}).popup("show");
+    clipboard.on("success", function (e) {
+      $(e.trigger)
+        .popup({ variation: "inverted", content: "Copied!" })
+        .popup("show");
       e.clearSelection();
     });
 
-    clipboard.on("error", function(e) {
+    clipboard.on("error", function (e) {
       console.log(e);
     });
 
     let chartOptions = this.chartOptions;
 
-    $(".chart").each(function(index) {
+    $(".chart").each(function (index) {
       let data = $(this).data("chart");
 
       let options = $.extend(chartOptions, {
@@ -127,29 +136,41 @@ export default class EpisodeView {
     new CalendarField(".ui.calendar");
     new Modal(".js-title-guide-modal", ".title-guide.modal");
     new Modal(".js-subtitle-guide-modal", ".subtitle-guide.modal");
+    new ChaptersWidget("audio", $(".js-episode_sponsors"));
+    new ChaptersWidget("plusplus", []);
 
-    let requestedInput = $("input[name='episode[requested]']")
-    let requestSelect = $("select[name='episode[request_id]']")
+    let clipboard = new Clipboard(".clipboard.button");
 
-    requestedInput.on("change", function() {
+    clipboard.on("success", function (e) {
+      $(e.trigger)
+        .popup({ variation: "inverted", content: "Copied!" })
+        .popup("show");
+    });
+
+    clipboard.on("error", function (e) {
+      console.log(e);
+    });
+
+    let requestedInput = $("input[name='episode[requested]']");
+    let requestSelect = $("select[name='episode[request_id]']");
+
+    requestedInput.on("change", function () {
       if (requestedInput.is(":checked")) {
-        requestSelect.closest(".field").show();
+        requestSelect.closest(".field").removeClass("hidden");
       } else {
-        requestSelect.closest(".field").hide();
+        requestSelect.closest(".field").addClass("hidden");
         requestSelect.dropdown("clear");
       }
-    })
+    });
 
-    let liveInput = $("input[name='episode[recorded_live]']")
-    let youTubeInputContainer = $("input[name='episode[youtube_id]']").closest("div")
+    $("form").on("change", ".js-time-in-seconds", function (event) {
+      let currentTime = $(event.target).val();
+      let newTime = parseTime(currentTime);
 
-    liveInput.on("change", function () {
-      if (liveInput.is(":checked")) {
-        youTubeInputContainer.removeClass("hidden")
-      } else {
-        youTubeInputContainer.addClass("hidden")
+      if (currentTime != newTime) {
+        $(event.target).val(newTime);
       }
-    })
+    });
   }
 
   edit() {
@@ -160,11 +181,14 @@ export default class EpisodeView {
     let newsInput = $("input[name=news]");
     let thanksInput = $("input[name=thanks]");
 
-    newsInput.on("change", function() {
+    newsInput.on("change", function () {
       if (newsInput.is(":checked")) {
         thanksInput.closest(".checkbox").checkbox("set enabled");
       } else {
-        thanksInput.closest(".checkbox").checkbox("set disabled").checkbox("uncheck");
+        thanksInput
+          .closest(".checkbox")
+          .checkbox("set disabled")
+          .checkbox("uncheck");
       }
     });
   }

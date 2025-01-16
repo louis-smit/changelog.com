@@ -1,7 +1,9 @@
-use Mix.Config
+import Config
+
+static_url_host = System.get_env("STATIC_URL_HOST", "cdn.changelog.com")
 
 config :changelog, ChangelogWeb.Endpoint,
-  http: [port: System.get_env("HTTP_PORT", "4000")],
+  http: [port: System.get_env("HTTP_PORT", "4000"), ip: {0, 0, 0, 0, 0, 0, 0, 0}],
   url: [
     scheme: System.get_env("URL_SCHEME", "https"),
     host: System.get_env("URL_HOST", "changelog.com"),
@@ -9,68 +11,76 @@ config :changelog, ChangelogWeb.Endpoint,
   ],
   static_url: [
     scheme: System.get_env("STATIC_URL_SCHEME", "https"),
-    host: System.get_env("STATIC_URL_HOST", "cdn.changelog.com"),
-    port: System.get_env("STATIC_URL_PORT", "443")
+    host: static_url_host,
+    port: System.get_env("STATIC_URL_PORT", "443"),
+    path: "/static"
   ],
-  cache_static_manifest: "priv/static/cache_manifest.json"
+  cache_static_manifest: "priv/static/cache_manifest.json",
+  # we don't need vsn=?d because Plug.Static doesn't serve static assets in prod
+  cache_manifest_skip_vsn: true
 
-if System.get_env("HTTPS") do
-  config :changelog, ChangelogWeb.Endpoint,
-    https: [
-      port: System.get_env("HTTPS_PORT", "443"),
-      cipher_suite: :strong,
-      otp_app: :changelog,
-      certfile: System.get_env("HTTPS_CERTFILE"),
-      keyfile: System.get_env("HTTPS_KEYFILE")
-    ]
-end
+# Serve Waffle static assets from our CDN, usually cdn.changelog.com
+config :waffle,
+  asset_host: "https://#{static_url_host}"
+
+config :sentry,
+  dsn: "https://2b1aed8f16f5404cb2bc79b855f2f92d@o546963.ingest.sentry.io/5668962",
+  environment_name: Mix.env(),
+  filter: Changelog.Sentry.EventFilter
 
 config :logger,
   level: :info,
   backends: [:console, Sentry.LoggerBackend]
 
-config :arc,
-  storage_dir: System.get_env("UPLOADS_PATH", "/uploads")
-
 config :changelog, Changelog.Repo,
   adapter: Ecto.Adapters.Postgres,
   database: System.get_env("DB_NAME", "changelog"),
   hostname: System.get_env("DB_HOST", "db"),
-  password: SecretOrEnv.get("DB_PASS"),
-  pool_size: 40,
+  username: System.get_env("DB_USER", "postgres"),
+  ssl: true,
+  ssl_opts: [
+    # The cacertfile value implies Ubuntu,
+    # which is what we use when building the prod container image
+    cacertfile: "/etc/ssl/certs/ca-certificates.crt",
+    verify: :verify_peer,
+    server_name_indication: String.to_charlist(System.get_env("DB_HOST", "db")),
+    customize_hostname_check: [
+      match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
+    ]
+  ],
+  password: System.get_env("DB_PASS"),
   timeout: 60000,
-  username: System.get_env("DB_USER", "postgres")
+  pool_size: 40
 
 config :changelog, Changelog.Mailer,
-  adapter: Bamboo.SMTPAdapter,
-  server: "smtp.api.createsend.com",
+  adapter: Swoosh.Adapters.SMTP,
+  relay: "smtp.api.createsend.com",
   port: 587,
-  username: SecretOrEnv.get("CM_SMTP_TOKEN"),
-  password: SecretOrEnv.get("CM_SMTP_TOKEN")
+  username: System.get_env("CM_SMTP_TOKEN"),
+  password: System.get_env("CM_SMTP_TOKEN")
 
 config :elixir, :time_zone_database, Tzdata.TimeZoneDatabase
 
 config :changelog, Oban,
   plugins: [
-    Oban.Plugins.Pruner,
-    Oban.Plugins.Stager,
+    # 12 hours
+    {Oban.Plugins.Pruner, max_age: 43_200},
     {Oban.Plugins.Cron,
      timezone: "US/Central",
      crontab: [
-       {"0 4 * * *", Changelog.ObanWorkers.StatsProcessor},
-       {"0 3 * * *", Changelog.ObanWorkers.SlackImporter},
+       # 3am daily
+       {"00 3 * * *", Changelog.ObanWorkers.ZulipImporter},
+       # 3:30am daily
+       {"30 3 * * *", Changelog.ObanWorkers.Bouncer},
+       # 4am daily
+       {"00 4 * * *", Changelog.ObanWorkers.EpisodeStatsProcessor},
+       # 4:45am daily
+       {"45 4 * * *", Changelog.ObanWorkers.FeedStatsProcessor},
+       # every 3 hours
+       {"0 */3 * * *", Changelog.ObanWorkers.MembershipSyncer},
+       # 15 after every hour
+       {"15 * * * *", Changelog.ObanWorkers.SmokeTester},
+       # every minute
        {"* * * * *", Changelog.ObanWorkers.NewsPublisher}
      ]}
   ]
-
-config :changelog, Changelog.PromEx,
-  manual_metrics_start_delay: :no_delay,
-  drop_metrics_groups: [],
-  grafana: [
-    host: System.get_env("GRAFANA_URL"),
-    auth_token: SecretOrEnv.get("GRAFANA_API_KEY"),
-    datasource_id: System.get_env("GRAFANA_DATASOURCE_ID", "Prometheus"),
-    annotate_app_lifecycle: true
-  ],
-  metrics_server: :disabled,
-  prometheus_bearer_token: SecretOrEnv.get("PROMETHEUS_BEARER_TOKEN_PROM_EX")
